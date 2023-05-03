@@ -45,6 +45,7 @@
 #include <rcsc/player/player_agent.h>
 #include <rcsc/player/debug_client.h>
 #include <rcsc/player/intercept_table.h>
+#include <rcsc/player/player_intercept.h>
 
 #include <rcsc/common/logger.h>
 #include <rcsc/common/server_param.h>
@@ -58,6 +59,143 @@ using namespace rcsc;
 /*!
 
  */
+
+
+std::vector<Vector2D> createBallCache(PlayerAgent * agent)
+{
+    std::vector<Vector2D> M_ball_pos_cache;
+
+    const WorldModel & wm = agent->world();
+    const ServerParam & SP = ServerParam::i();
+    const double pitch_x_max = ( SP.keepawayMode()
+                                 ? SP.keepawayLength() * 0.5
+                                 : SP.pitchHalfLength() + 5.0 );
+    const double pitch_y_max = ( SP.keepawayMode()
+                                 ? SP.keepawayWidth() * 0.5
+                                 : SP.pitchHalfWidth() + 5.0 );
+    const double bdecay = SP.ballDecay();
+
+    Vector2D bpos = wm.ball().pos();
+    Vector2D bvel = wm.ball().vel();
+
+    M_ball_pos_cache.push_back( bpos );
+
+    for (int i = 1; i <= 30; ++i )
+    {
+        bpos += bvel;
+        bvel *= bdecay;
+
+        M_ball_pos_cache.push_back( bpos );
+
+        if ( i >= 5
+             && bvel.r2() < 0.01*0.01 )
+        {
+            // ball stopped
+            break;
+        }
+
+        if ( bpos.absX() > pitch_x_max
+             || bpos.absY() > pitch_y_max )
+        {
+            // out of pitch
+            break;
+        }
+    }
+
+    if ( M_ball_pos_cache.size() == 1 )
+    {
+        M_ball_pos_cache.push_back( bpos );
+    }
+    
+    return M_ball_pos_cache;
+}
+
+
+bool intention(PlayerAgent * agent){
+    const WorldModel & wm = agent->world();
+    dlog.addText(Logger::BLOCK, "Starting Intention");
+
+    PlayerObject *teammate = NULL, *opponent = NULL;
+    bool tm_reaching, op_reaching;
+    Vector2D ball_pos;
+
+    const PlayerPtrCont::const_iterator tm_end = wm.teammatesFromBall().end();
+    for ( PlayerPtrCont::const_iterator it = wm.teammatesFromBall().begin();
+          it != tm_end;
+          ++it)
+    {
+        if ((*it)->posCount() >= 10 ||
+            (*it)->unum() == wm.self().unum())
+            continue;
+        
+        ball_pos = wm.ball().pos();
+        tm_reaching = ball_pos.dist((*it)->inertiaPoint(2)) < ball_pos.dist((*it)->pos());
+        if (!((*it)->playerTypePtr()))
+            continue;
+        if (tm_reaching){
+            teammate = *it;
+            break;
+        }
+    }
+
+    const PlayerPtrCont::const_iterator op_end = wm.opponentsFromBall().end();
+    for ( PlayerPtrCont::const_iterator it = wm.opponentsFromBall().begin();
+          it != op_end;
+          ++it)
+    {
+        if ((*it)->posCount() >= 10)
+            continue;
+        
+        ball_pos = wm.ball().pos();
+        op_reaching = ball_pos.dist((*it)->inertiaPoint(2)) < ball_pos.dist((*it)->pos());
+        if (!((*it)->playerTypePtr()))
+            continue;
+        if (op_reaching){
+            opponent = *it;
+            break;
+        }
+    }
+
+    if((teammate == NULL || opponent == NULL) && wm.self().distFromBall() > 10){
+        dlog.addText(Logger::BLOCK, "Found a NULL ----------------");
+        return false;
+    }
+
+    const std::vector<Vector2D> Ball_cache = createBallCache(agent);
+    if (Ball_cache.empty()){
+        dlog.addText(Logger::BLOCK, "Ball_cache empty ----------------");
+        return false;
+    }
+    PlayerIntercept predictor = PlayerIntercept(wm, Ball_cache);
+    
+    int self_min = wm.interceptTable()->selfReachCycle();
+    int tm_min = 1000;  
+    int op_min = 1000;
+
+    if (teammate){
+        const PlayerType * tm_type = teammate->playerTypePtr();
+        if (tm_type)
+            tm_min = predictor.predict( *teammate, *tm_type, Ball_cache.size() );
+    } 
+
+    if (opponent){
+        const PlayerType * op_type = opponent->playerTypePtr();
+        if (op_type)
+            op_min = predictor.predict( *opponent, *op_type, Ball_cache.size() );
+    }
+
+    if ( (self_min < 4 && wm.lastKickerSide() == wm.ourSide()) || 
+        (self_min <= tm_min && self_min < op_min + 3) ||
+        self_min < 3){
+        dlog.addText(Logger::BLOCK, "Intention returning True ----------------");
+        return true;
+    } 
+
+    dlog.addText(Logger::BLOCK, "Intention returning False ----------------");
+    return false;
+}
+
+
 bool
 Bhv_BasicMove::execute( PlayerAgent * agent )
 {
@@ -80,8 +218,8 @@ Bhv_BasicMove::execute( PlayerAgent * agent )
 
     if ( ! wm.existKickableTeammate()
          && ( self_min <= 3
-              || ( self_min <= mate_min
-                   && self_min < opp_min + 3 )
+              || /*( self_min <= mate_min
+                   && self_min < opp_min + 3 )*/ intention(agent)
               )
          )
     {
