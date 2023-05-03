@@ -54,6 +54,23 @@ using namespace rcsc;
 /*!
 
  */
+
+
+bool check_space(const WorldModel & wm){
+    AngleDeg base = wm.self().vel().th().degree(); //Vector2D(52.5,0).th().degree();
+    Sector2D goal_sect = Sector2D(wm.self().pos(), 0, 8, base + AngleDeg(-45), base + AngleDeg(45));
+    Sector2D back_sect = Sector2D(wm.self().pos(), 0, 6, base + AngleDeg(45), base + AngleDeg(-45));
+    if (wm.existOpponentIn(goal_sect,8,false) || 
+        wm.existOpponentIn(back_sect,8,false)){
+        return true;
+    }
+    if (wm.existTeammateIn(goal_sect,6,false)){
+        return true;
+    }
+    return false;
+}
+
+
 bool
 Bhv_BasicOffensiveKick::execute( PlayerAgent * agent )
 {
@@ -78,7 +95,7 @@ Bhv_BasicOffensiveKick::execute( PlayerAgent * agent )
 //                                       ? nearest_opp->pos()
 //                                       : Vector2D( -1000.0, 0.0 ) );
 
-    if(nearest_opp_dist < 10){
+    if(check_space(wm) /*nearest_opp_dist < 10*/){
     	if(pass(agent))
     		return true;
     }
