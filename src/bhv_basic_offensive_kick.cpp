@@ -196,16 +196,11 @@ Bhv_BasicOffensiveKick::execute( PlayerAgent * agent )
     const double nearest_opp_dist = ( nearest_opp
                                       ? nearest_opp->distFromSelf()
                                       : 1000.0 );
-//    const Vector2D nearest_opp_pos = ( nearest_opp
-//                                       ? nearest_opp->pos()
-//                                       : Vector2D( -1000.0, 0.0 ) );
 
-    if(check_space(wm) /*nearest_opp_dist < 10*/){
+    if(check_space(wm)){
     	if(pass(agent))
     		return true;
     }
-
-
 
     if(dribble(agent)){
     	return true;
@@ -231,16 +226,6 @@ bool Bhv_BasicOffensiveKick::shoot( rcsc::PlayerAgent * agent ){
             return false;
     Vector2D best_shoot = best_shoot_place(agent, 2);
 
-    /*
-	Vector2D left_goal = Vector2D(52.5,6);
-	Vector2D right_goal = Vector2D(52.5,-6);
-
-	if(left_goal.dist(ball_pos) < right_goal.dist(ball_pos)){
-        Body_SmartKick(left_goal,3,0.1,2).execute(agent);
-	}else{
-        Body_SmartKick(right_goal,3,0.1,2).execute(agent);
-	}
-    */
     if (best_shoot != Vector2D(100, 100)){
         if (!Body_SmartKick(best_shoot,3,2,2).execute(agent)){
             Body_StopBall().execute(agent);
@@ -262,8 +247,7 @@ bool Bhv_BasicOffensiveKick::pass(PlayerAgent * agent){
 		Vector2D tm_pos = tm->pos();
 		if(tm->pos().dist(ball_pos) > 30)
 			continue;
-		//Sector2D pass = Sector2D(ball_pos,1,tm_pos.dist(ball_pos)+3,(tm_pos - ball_pos).th() - 15,(tm_pos - ball_pos).th() + 15);
-		if( possible_pass(agent, tm_pos, 2) /*!wm.existOpponentIn(pass,5,true)*/){
+		if( possible_pass(agent, tm_pos, 2) ){
 			targets.push_back(tm_pos);
 		}
 	}
