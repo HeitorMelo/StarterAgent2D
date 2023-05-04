@@ -134,24 +134,46 @@ double check_interf(const AbstractPlayerObject & player, Vector2D & target, cons
 bool Bhv_BasicOffensiveKick::possible_pass(PlayerAgent * agent, Vector2D & target, const int & cycle_thr){
     const WorldModel & wm = agent->world();
     int min_op_reach = 100;
-    int min_op = 0;
     for (int i = 1; i <= 11; i++){
         const AbstractPlayerObject * op = wm.theirPlayer(i);
         if(op == NULL || op->unum() < 1)
             continue;
         double reach = check_interf(wm, target, op, 2);
-        if (reach < min_op_reach) {
-            min_op_reach = reach;
-            min_op = i;
-        }
+        min_op_reach = reach < min_op_reach ? reach : min_op_reach;
     }
-    //return min_vel score 
     if (min_op_reach + cycle_thr > 0) {
         return true;
     } else {
         return false;
     }
     
+}
+
+Vector2D Bhv_BasicOffensiveKick::best_shoot_place(PlayerAgent * agent, const int & cycle_thr){
+    Vector2D target;
+    Vector2D best_target;
+    double best_reach = -100;
+    const WorldModel & wm = agent->world();
+    for (double i = -6; i < 7; i++){
+        target = {52, i};
+        int ops_reach = 100;
+        for (int i = 1; i <= 11; i++){
+            const AbstractPlayerObject * op = wm.theirPlayer(i);
+            if(op == NULL || op->unum() < 1)
+                continue;
+            double reach = check_interf(wm, target, op, 2);
+            ops_reach = reach < ops_reach ? reach : ops_reach;
+        }
+        if (ops_reach > best_reach && ops_reach != 100){
+            best_target = target;
+            best_reach = ops_reach;
+        }
+    }
+
+    if (best_reach + cycle_thr > 0)
+        return best_target;
+    else
+        return Vector2D(100, 100);
 }
 
 bool
@@ -207,6 +229,9 @@ bool Bhv_BasicOffensiveKick::shoot( rcsc::PlayerAgent * agent ){
 	Vector2D center_goal = Vector2D(52.5,0);
 	if(ball_pos.dist(center_goal) > 25)
             return false;
+    Vector2D best_shoot = best_shoot_place(agent, 2);
+
+    /*
 	Vector2D left_goal = Vector2D(52.5,6);
 	Vector2D right_goal = Vector2D(52.5,-6);
 
@@ -215,7 +240,15 @@ bool Bhv_BasicOffensiveKick::shoot( rcsc::PlayerAgent * agent ){
 	}else{
         Body_SmartKick(right_goal,3,0.1,2).execute(agent);
 	}
-	return true;
+    */
+    if (best_shoot != Vector2D(100, 100)){
+        if (!Body_SmartKick(best_shoot,3,2,2).execute(agent)){
+            Body_StopBall().execute(agent);
+        }
+        return true;
+    }
+
+	return false;
 }
 
 bool Bhv_BasicOffensiveKick::pass(PlayerAgent * agent){

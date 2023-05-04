@@ -40,6 +40,7 @@ public:
     bool shoot( rcsc::PlayerAgent * agent );
     bool pass_to_forward( rcsc::PlayerAgent * agent );
     bool possible_pass(rcsc::PlayerAgent * agent, rcsc::Vector2D & target, const int & cycle_thr);
+    rcsc::Vector2D best_shoot_place(rcsc::PlayerAgent * agent, const int & cycle_thr);
     bool pass( rcsc::PlayerAgent * agent );
     bool dribble( rcsc::PlayerAgent * agent );
     bool clearball( rcsc::PlayerAgent * agent );
