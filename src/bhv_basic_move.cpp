@@ -184,9 +184,8 @@ bool intention(PlayerAgent * agent){
             op_min = predictor.predict( *opponent, *op_type, Ball_cache.size() );
     }
 
-    if ( (self_min < 4 && wm.lastKickerSide() == wm.ourSide()) || 
-        (self_min <= tm_min && self_min < op_min + 3) ||
-        self_min < 3){
+    if ( (self_min <= 4 && wm.lastKickerSide() == wm.ourSide()) || 
+        (self_min <= tm_min && self_min < op_min + 3)){
         dlog.addText(Logger::BLOCK, "Intention returning True ----------------");
         return true;
     } 
@@ -218,8 +217,7 @@ Bhv_BasicMove::execute( PlayerAgent * agent )
 
     if ( ! wm.existKickableTeammate()
          && ( self_min <= 3
-              || /*( self_min <= mate_min
-                   && self_min < opp_min + 3 )*/ intention(agent)
+              || intention(agent)
               )
          )
     {

@@ -28,7 +28,7 @@
 #define TOKYOTEC_BHV_BASIC_OFFENSIVE_KICK_H
 
 #include <rcsc/player/soccer_action.h>
-
+#include <rcsc/geom/vector_2d.h>
 
 class Bhv_BasicOffensiveKick
     : public rcsc::SoccerBehavior {
@@ -39,6 +39,7 @@ public:
     bool execute( rcsc::PlayerAgent * agent );
     bool shoot( rcsc::PlayerAgent * agent );
     bool pass_to_forward( rcsc::PlayerAgent * agent );
+    bool possible_pass(rcsc::PlayerAgent * agent, rcsc::Vector2D & target, const int & cycle_thr);
     bool pass( rcsc::PlayerAgent * agent );
     bool dribble( rcsc::PlayerAgent * agent );
     bool clearball( rcsc::PlayerAgent * agent );

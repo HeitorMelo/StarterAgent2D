@@ -70,6 +70,89 @@ bool check_space(const WorldModel & wm){
     return false;
 }
 
+Vector2D point_proj(Vector2D & lp1, Vector2D & lp2, Vector2D & p){
+    double t = ((p.x - lp1.x) * (lp2.x - lp1.x) + 
+            (p.y - lp1.y) * (lp2.y - lp1.y)) / 
+            (pow((lp2.x - lp1.x), 2) + 
+            pow((lp2.y - lp1.y), 2));
+    if(t < 0 || t > 1){
+        return {100, 100};
+    }
+
+    double xc = lp1.x + t * (lp2.x - lp1.x);
+    double yc = lp1.y + t * (lp2.y - lp1.y);
+    
+    return {xc, yc};
+}
+    
+double check_interf(const WorldModel & player, Vector2D & target, const AbstractPlayerObject * op, double ball_speed){
+    Vector2D p_pos = player.self().pos();
+    Vector2D op_pos = op->pos();
+    const PlayerType * op_type = op->playerTypePtr();
+
+    Vector2D projection_point = point_proj(p_pos, target, op_pos);
+    
+    if (projection_point != Vector2D(100, 100)){
+        double op_dist = op_pos.dist(projection_point);
+        double min_proj_cycle = p_pos.dist(projection_point) / ball_speed;
+        double min_op_cycle = op_dist / op_type->realSpeedMax();
+        
+        if (op_dist < 0.5 && min_proj_cycle >= 1) {return -100.0;};
+
+        dlog.addText(Logger::BLOCK, "---------> Min reach is %.2f", min_proj_cycle);
+        dlog.addText(Logger::BLOCK, "---------> Min cycle is %.2f", min_op_cycle);
+
+        return(min_op_cycle - min_proj_cycle);
+    }
+
+    return(1);
+}
+
+double check_interf(const AbstractPlayerObject & player, Vector2D & target, const AbstractPlayerObject * op, double ball_speed){
+    Vector2D p_pos = player.pos();
+    Vector2D op_pos = op->pos();
+    const PlayerType * op_type = op->playerTypePtr();
+
+    Vector2D projection_point = point_proj(p_pos, target, op_pos);
+    
+    if (projection_point != Vector2D(100, 100)){
+        double op_dist = op_pos.dist(projection_point);
+        double min_proj_cycle = p_pos.dist(projection_point) / ball_speed;
+        double min_op_cycle = op_dist / op_type->realSpeedMax();
+        
+        if (op_dist < 0.5 && min_proj_cycle >= 1) {return -100.0;};
+
+        dlog.addText(Logger::BLOCK, "---------> Min reach is %.2f", min_proj_cycle);
+        dlog.addText(Logger::BLOCK, "---------> Min cycle is %.2f", min_op_cycle);
+
+        return(min_op_cycle - min_proj_cycle);
+    }
+
+    return(1);
+}
+
+bool Bhv_BasicOffensiveKick::possible_pass(PlayerAgent * agent, Vector2D & target, const int & cycle_thr){
+    const WorldModel & wm = agent->world();
+    int min_op_reach = 100;
+    int min_op = 0;
+    for (int i = 1; i <= 11; i++){
+        const AbstractPlayerObject * op = wm.theirPlayer(i);
+        if(op == NULL || op->unum() < 1)
+            continue;
+        double reach = check_interf(wm, target, op, 2);
+        if (reach < min_op_reach) {
+            min_op_reach = reach;
+            min_op = i;
+        }
+    }
+    //return min_vel score 
+    if (min_op_reach + cycle_thr > 0) {
+        return true;
+    } else {
+        return false;
+    }
+    
+}
 
 bool
 Bhv_BasicOffensiveKick::execute( PlayerAgent * agent )
@@ -146,8 +229,8 @@ bool Bhv_BasicOffensiveKick::pass(PlayerAgent * agent){
 		Vector2D tm_pos = tm->pos();
 		if(tm->pos().dist(ball_pos) > 30)
 			continue;
-		Sector2D pass = Sector2D(ball_pos,1,tm_pos.dist(ball_pos)+3,(tm_pos - ball_pos).th() - 15,(tm_pos - ball_pos).th() + 15);
-		if(!wm.existOpponentIn(pass,5,true)){
+		//Sector2D pass = Sector2D(ball_pos,1,tm_pos.dist(ball_pos)+3,(tm_pos - ball_pos).th() - 15,(tm_pos - ball_pos).th() + 15);
+		if( possible_pass(agent, tm_pos, 2) /*!wm.existOpponentIn(pass,5,true)*/){
 			targets.push_back(tm_pos);
 		}
 	}
