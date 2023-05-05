@@ -37,6 +37,8 @@
 #include "bhv_basic_move.h"
 
 #include "bhv_basic_tackle.h"
+#include "bhv_basic_offensive_kick.h"
+#include <rcsc/action/neck_turn_to_player_or_scan.h>
 
 #include <rcsc/action/basic_actions.h>
 #include <rcsc/action/body_go_to_point.h>
@@ -195,6 +197,129 @@ bool intention(PlayerAgent * agent){
 }
 
 
+void Bhv_BasicMove::check_players(PlayerAgent * agent){
+    const WorldModel & wm = agent->world();
+    Vector2D self_pos = wm.self().pos();
+
+    //viewWidth
+    const int opp_min = wm.interceptTable()->opponentReachCycle();
+    const int self_min = wm.interceptTable()->selfReachCycle();
+    const int mate_min = wm.interceptTable()->teammateReachCycle();
+    
+    if (wm.ball().seenPosCount() >= self_min - 1 || (self_min <= 5 && opp_min <= 6))
+        agent->doChangeView( ViewWidth::NARROW);
+    else if (self_min <= 15)
+        agent->doChangeView( ViewWidth::NORMAL );
+    else if (!wm.ball().posValid() || (self_min > mate_min && opp_min < self_min))
+        agent->doChangeView( ViewWidth::WIDE );
+    else
+        agent->doChangeView( ViewWidth::NORMAL );   
+    
+
+    //check positions for possible mate pass
+    std::vector<PlayerObject *> teams; 
+    std::vector<PlayerObject *> oppons;
+
+
+    const PlayerPtrCont::const_iterator tm_end = wm.teammatesFromSelf().end();
+    for (PlayerPtrCont::const_iterator tm_player = wm.teammatesFromSelf().begin();
+        tm_player != tm_end; 
+        ++tm_player)
+    {
+        if ( *tm_player == NULL ||
+            (*tm_player)->isGhost() ||
+            (*tm_player)->unum() == wm.self().unum() ||
+            ((*tm_player)->distFromSelf() > 30 )
+        )
+            continue; 
+        if ((*tm_player)->pos().absX() > self_pos.absX() - 10)
+            teams.push_back(*tm_player);
+    }
+    
+    const PlayerPtrCont::const_iterator op_end = wm.opponentsFromSelf().end();
+    for (PlayerPtrCont::const_iterator op_player = wm.opponentsFromSelf().begin();
+        op_player != op_end; 
+        ++op_player)
+    {
+        if ( *op_player == NULL ||
+            (*op_player)->isGhost() ||
+            (*op_player)->distFromSelf() > 25
+        )
+            continue;
+        if ((*op_player)->pos().absX() > self_pos.absX() - 10)
+            oppons.push_back(*op_player);
+    }
+
+    if (wm.existKickableTeammate()){
+        const PlayerObject * nearest_tm = wm.getTeammateNearestToBall(5, false);
+        if (nearest_tm != NULL ){
+            Vector2D tm_pos = nearest_tm->pos();
+            
+            bool poss_pass = Bhv_BasicOffensiveKick().possible_pass(agent, tm_pos, 5);
+            if (poss_pass && nearest_tm->posCount() >= 2){
+                if (wm.self().seenPosCount() == 0)
+                    agent->doChangeView( ViewWidth::NARROW );
+                else if (wm.self().seenPosCount() == 1)
+                    agent->doChangeView( ViewWidth::NORMAL );
+                else
+                    agent->doChangeView( ViewWidth::WIDE );
+                Bhv_NeckBodyToBall().execute(agent);
+                return;
+            }
+        }
+    }
+    
+    
+    int last_tm_seen = 100;
+    PlayerObject * last_tm = NULL;
+    int last_op_seen = 100;
+    PlayerObject * last_op = NULL;
+    for (PlayerObject * tm: teams){
+        if (last_tm_seen > tm->seenPosCount()){
+            last_tm_seen = tm->seenPosCount();
+            last_tm = tm;
+        }
+    }
+
+    for (PlayerObject * op: oppons){
+        if (last_op_seen > op->seenPosCount()){
+            last_op_seen = op->seenPosCount();
+            last_op = op;
+        }
+    }
+
+    int goalie = wm.theirGoalieUnum();
+    if (wm.self().pos().dist(Vector2D(52.5,0)) < 20 && goalie != Unum_Unknown){
+        if (wm.theirPlayer(goalie)->posCount() > 3){
+            Neck_TurnToPoint((Vector2D(52.5, 0))).execute(agent);
+            return;
+        }
+    }
+
+    if (wm.ball().seenPosCount() >= 3){
+        Bhv_NeckBodyToBall().execute(agent);
+        return;
+    }
+    const PlayerObject * near_op = wm.getOpponentNearestToSelf(5, false);
+    if (last_op != NULL && near_op != NULL){
+        if (near_op->pos().dist(wm.self().pos()) > 10) {
+            Neck_TurnToPlayerOrScan(wm.theirPlayer(last_op->unum())).execute(agent);
+            return;
+        }
+    } 
+    if (last_tm != NULL){
+        if ( last_tm->unum() >= 1) {
+            Neck_TurnToPlayerOrScan(wm.ourPlayer(last_tm->unum())).execute(agent);
+            return;
+        }
+    }
+
+    
+    Bhv_NeckBodyToBall().execute(agent);
+
+}
+
+
 bool
 Bhv_BasicMove::execute( PlayerAgent * agent )
 {
@@ -215,6 +340,7 @@ Bhv_BasicMove::execute( PlayerAgent * agent )
     const int mate_min = wm.interceptTable()->teammateReachCycle();
     const int opp_min = wm.interceptTable()->opponentReachCycle();
 
+    check_players(agent);
     if ( ! wm.existKickableTeammate()
          && ( self_min <= 3
               || intention(agent)

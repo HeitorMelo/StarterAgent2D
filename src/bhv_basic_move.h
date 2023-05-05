@@ -38,6 +38,7 @@ public:
       { }
 
     bool execute( rcsc::PlayerAgent * agent );
+    void check_players(rcsc::PlayerAgent * agent);
     rcsc::Vector2D getPosition(const rcsc::WorldModel & wm, int unum);
     double get_normal_dash_power( const rcsc::WorldModel & wm );
 

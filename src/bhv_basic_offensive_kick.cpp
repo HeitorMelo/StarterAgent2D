@@ -35,6 +35,8 @@
 #endif
 
 #include "bhv_basic_offensive_kick.h"
+#include "bhv_basic_move.h"
+#include <rcsc/action/bhv_neck_body_to_point.h>
 
 #include <rcsc/action/body_hold_ball.h>
 #include <rcsc/action/body_smart_kick.h>
@@ -58,8 +60,8 @@ using namespace rcsc;
 
 bool check_space(const WorldModel & wm){
     AngleDeg base = wm.self().vel().th().degree(); //Vector2D(52.5,0).th().degree();
-    Sector2D goal_sect = Sector2D(wm.self().pos(), 0, 8, base + AngleDeg(-45), base + AngleDeg(45));
-    Sector2D back_sect = Sector2D(wm.self().pos(), 0, 6, base + AngleDeg(45), base + AngleDeg(-45));
+    Sector2D goal_sect = Sector2D(wm.self().pos(), 0, 10, base + AngleDeg(-60), base + AngleDeg(60));
+    Sector2D back_sect = Sector2D(wm.self().pos(), 0, 6, base + AngleDeg(60), base + AngleDeg(-60));
     if (wm.existOpponentIn(goal_sect,8,false) || 
         wm.existOpponentIn(back_sect,8,false)){
         return true;
@@ -156,6 +158,8 @@ Vector2D Bhv_BasicOffensiveKick::best_shoot_place(PlayerAgent * agent, const int
     const WorldModel & wm = agent->world();
     for (double i = -6; i < 7; i++){
         target = {52, i};
+        if (wm.getPointCount(target, 1) > 1)
+            continue;
         int ops_reach = 100;
         for (int i = 1; i <= 11; i++){
             const AbstractPlayerObject * op = wm.theirPlayer(i);
@@ -183,6 +187,7 @@ Bhv_BasicOffensiveKick::execute( PlayerAgent * agent )
                   __FILE__": Bhv_BasicOffensiveKick" );
 
     const WorldModel & wm = agent->world();
+    Bhv_BasicMove().check_players(agent);
 
     if(shoot(agent)){
     	return true;
