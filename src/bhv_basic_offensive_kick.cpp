@@ -263,10 +263,14 @@ bool Bhv_BasicOffensiveKick::pass(PlayerAgent * agent){
 		if(targets[i].x > best_target.x)
 			best_target = targets[i];
 	}
+
+    double vel = wm.ball().pos().dist(best_target) / 2;
+    vel = (vel + 0.5) > 3? 3 : vel + 0.5;
+
 	if(wm.gameMode().type()!= GameMode::PlayOn)
-        Body_SmartKick(best_target,3,2.5,1).execute(agent);
+        Body_SmartKick(best_target,vel, vel - 0.5,1).execute(agent);
 	else
-        Body_SmartKick(best_target,3,2.5,2).execute(agent);
+        Body_SmartKick(best_target,vel , vel - 0.5,2).execute(agent);
 	return true;
 }
 
@@ -275,9 +279,18 @@ bool Bhv_BasicOffensiveKick::dribble(PlayerAgent * agent){
 	Vector2D ball_pos = wm.ball().pos();
 	double dribble_angle = (Vector2D(52.5,0) - ball_pos).th().degree();
 	Sector2D dribble_sector = Sector2D(ball_pos,0,3,dribble_angle - 15,dribble_angle+15);
+
+    Sector2D check_sector = Sector2D(ball_pos,0,7,dribble_angle - 30,dribble_angle + 30);
+    Vector2D speed = wm.existOpponentIn(check_sector, 10,true) == true ? 
+                        Vector2D(0.5, 0.4) : Vector2D(0.8, 0.7);
+
 	if(!wm.existOpponentIn(dribble_sector,5,true)){
-		Vector2D target = Vector2D::polar2vector(3,dribble_angle) + ball_pos;
-		if(Body_SmartKick(target,0.8,0.7,2).execute(agent)){
+        Vector2D target;
+        if (wm.existOpponentIn(check_sector,10,true))
+            target = Vector2D::polar2vector(1.5,dribble_angle) + ball_pos;
+        else
+		    target = Vector2D::polar2vector(3,dribble_angle) + ball_pos;
+		if(Body_SmartKick(target,speed.x,speed.y,2).execute(agent)){
 			return true;
 		}
 	}

@@ -186,7 +186,7 @@ bool intention(PlayerAgent * agent){
             op_min = predictor.predict( *opponent, *op_type, Ball_cache.size() );
     }
 
-    if ( (self_min <= 4 && wm.lastKickerSide() == wm.ourSide()) || 
+    if ( (self_min <= 4 && wm.lastKickerSide() == wm.ourSide() && !wm.existKickableTeammate()) || 
         (self_min <= tm_min && self_min < op_min + 3)){
         dlog.addText(Logger::BLOCK, "Intention returning True ----------------");
         return true;
@@ -226,8 +226,7 @@ void Bhv_BasicMove::check_players(PlayerAgent * agent){
         tm_player != tm_end; 
         ++tm_player)
     {
-        if ( *tm_player == NULL ||
-            (*tm_player)->isGhost() ||
+        if ((*tm_player)->isGhost() ||
             (*tm_player)->unum() == wm.self().unum() ||
             ((*tm_player)->distFromSelf() > 30 )
         )
@@ -241,8 +240,7 @@ void Bhv_BasicMove::check_players(PlayerAgent * agent){
         op_player != op_end; 
         ++op_player)
     {
-        if ( *op_player == NULL ||
-            (*op_player)->isGhost() ||
+        if ((*op_player)->isGhost() ||
             (*op_player)->distFromSelf() > 25
         )
             continue;
@@ -289,29 +287,28 @@ void Bhv_BasicMove::check_players(PlayerAgent * agent){
     }
 
     int goalie = wm.theirGoalieUnum();
-    if (wm.self().pos().dist(Vector2D(52.5,0)) < 20 && goalie != Unum_Unknown){
-        if (wm.theirPlayer(goalie)->posCount() > 3){
-            Neck_TurnToPoint((Vector2D(52.5, 0))).execute(agent);
-            return;
+    if (wm.self().pos().dist(Vector2D(52.5,0)) < 20 && goalie != -1){
+        const AbstractPlayerObject * g = wm.theirPlayer(goalie);
+        if ((g && g->posCount() >= 2) || wm.getPointCount(Vector2D(52.5, 0), 1) >= 4){
+            if (Neck_TurnToPoint((Vector2D(52.5, 0))).execute(agent))
+                return;
         }
     }
 
-    if (wm.ball().seenPosCount() >= 3){
-        Bhv_NeckBodyToBall().execute(agent);
-        return;
+    if (wm.ball().seenPosCount() >= 2){
+        if (Bhv_NeckBodyToBall().execute(agent))
+            return;
     }
+
     const PlayerObject * near_op = wm.getOpponentNearestToSelf(5, false);
-    if (last_op != NULL && near_op != NULL){
-        if (near_op->pos().dist(wm.self().pos()) > 10) {
-            Neck_TurnToPlayerOrScan(wm.theirPlayer(last_op->unum())).execute(agent);
+    if (last_op != NULL && near_op != NULL && (near_op->pos().dist(wm.self().pos()) > 10)){
+        if (Neck_TurnToPlayerOrScan(wm.theirPlayer(last_op->unum())).execute(agent))
             return;
-        }
     } 
-    if (last_tm != NULL){
-        if ( last_tm->unum() >= 1) {
-            Neck_TurnToPlayerOrScan(wm.ourPlayer(last_tm->unum())).execute(agent);
+
+    if (last_tm != NULL && last_tm->unum() >= 1){
+        if (Neck_TurnToPlayerOrScan(wm.ourPlayer(last_tm->unum())).execute(agent))
             return;
-        }
     }
 
     
